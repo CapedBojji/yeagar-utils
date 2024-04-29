@@ -2,6 +2,7 @@
 import { InstanceTree } from "@rbxts/validate-tree";
 import { InstanceCache } from "@rbxts/instance-cache";
 import { HttpService, Workspace } from "@rbxts/services";
+import Tree from "./Tree";
 
 const CF_REALLY_FAR_AWAY = new CFrame(0, 10e4, 0);
 
@@ -13,9 +14,21 @@ export class AssetManager {
 
 	constructor(private readonly assetRoot: Instance) {}
 
-    getAsset(path: string) {
-        
-    }
+	getAsset(path: string) {
+		return Tree.Await(this.assetRoot, path);
+	}
+
+	cacheAssetFromPath(path: string, tree: InstanceTree, location?: Instance, amount?: number) {
+		const asset = this.getAsset(path);
+		if (!asset) return warn(`Asset ${path} not found`);
+		if (asset.IsA("BasePart")) return this.cacheAssetBasepart(asset as BasePart, tree, location, amount);
+		if (asset.IsA("Model")) return this.cacheAssetModel(asset as Model, tree, location, amount);
+		return this.cacheAsset(asset, tree, location, amount);
+	}
+
+	getGuidOfAsset(s: string) {
+		return this.guids.get(this.getAsset(s));
+	}
 
 	cacheAssetBasepart(asset: BasePart, tree: InstanceTree, location?: Instance, amount?: number) {
 		if (this.guids.has(asset)) return warn(`Basepart ${asset.Name} already cached`);
