@@ -9,7 +9,7 @@ export class AssetManager {
 	private readonly guids = new Map<Instance, string>();
 	private readonly assets: Map<string, InstanceCache<Instance>> = new Map();
 	private readonly baseparts: Map<string, InstanceCache<BasePart>> = new Map();
-    private readonly assetModels: Map<string, InstanceCache<Model>> = new Map();
+	private readonly assetModels: Map<string, InstanceCache<Model>> = new Map();
 
 	constructor(private readonly assetRoot: Instance) {}
 
@@ -24,29 +24,87 @@ export class AssetManager {
 		return assetName;
 	}
 
-	returnAssetBasepart(assetName: string, asset: BasePart) {
-		const cache = this.baseparts.get(assetName);
-		if (!cache) return warn(`Basepart ${assetName} not cached`);
-		asset.CFrame = CF_REALLY_FAR_AWAY;
-		cache.Return(asset);
+	cacheAsset(asset: Instance, tree: InstanceTree, location?: Instance, amount?: number) {
+		if (this.guids.has(asset)) return warn(`Asset ${asset.Name} already cached`);
+		const assetName = HttpService.GenerateGUID();
+		this.guids.set(asset, assetName);
+		if (this.assets.has(assetName)) return warn(`Asset ${assetName} already cached`);
+		const cache = new InstanceCache(asset, tree, location, amount);
+		this.assets.set(assetName, cache);
+		return assetName;
 	}
 
-	getAssetBasepart(assetName: string, location?: Instance): BasePart | undefined {
-		const cache = this.baseparts.get(assetName);
-		if (!cache) {
-			warn(`Basepart ${assetName} not cached`);
-			return undefined;
-		}
-		const basepart = cache.Get(location);
-		return basepart as BasePart;
+	cacheAssetModel(asset: Model, tree: InstanceTree, location?: Instance, amount?: number) {
+		if (this.guids.has(asset)) return warn(`Model ${asset.Name} already cached`);
+		const assetName = HttpService.GenerateGUID();
+		this.guids.set(asset, assetName);
+		if (this.assetModels.has(assetName)) return warn(`Model ${assetName} already cached`);
+		asset.PivotTo(CF_REALLY_FAR_AWAY);
+		const cache = new InstanceCache(asset, tree, location, amount);
+		this.assetModels.set(assetName, cache);
+		return assetName;
 	}
 
-    flush(assetName: string) {
-        const modelCache = this.assetModels.get(assetName);
-        const assetCache = this.assets.get(assetName);
-        const basepartCache = this.baseparts.get(assetName);
-        if (!modelCache && !assetCache && !basepartCache) return warn(`Asset ${assetName} not cached`);
-        const cache = modelCache ?? assetCache ?? basepartCache;
-        cache?.Flush();
-    }
+	return<T>(assetName: string, asset: T) {
+		const modelCache = this.assetModels.get(assetName);
+		const assetCache = this.assets.get(assetName);
+		const basepartCache = this.baseparts.get(assetName);
+		if (!modelCache && !assetCache && !basepartCache) return warn(`Asset ${assetName} not cached`);
+		const cache = modelCache ?? assetCache ?? basepartCache;
+		const map = modelCache
+			? this.assetModels
+			: assetCache
+				? this.assets
+				: basepartCache
+					? this.baseparts
+					: undefined;
+		map === this.assetModels
+			? (asset as Model).PivotTo(CF_REALLY_FAR_AWAY)
+			: ((asset as BasePart).CFrame = CF_REALLY_FAR_AWAY);
+		return cache?.Return(
+			map === this.assetModels
+				? (asset as Model)
+				: map === this.assets
+					? (asset as Instance)
+					: (asset as BasePart),
+		);
+	}
+
+	get<T>(assetName: string, location?: Instance): T | void {
+		const modelCache = this.assetModels.get(assetName);
+		const assetCache = this.assets.get(assetName);
+		const basepartCache = this.baseparts.get(assetName);
+		if (!modelCache && !assetCache && !basepartCache) return warn(`Asset ${assetName} not cached`);
+		const cache = modelCache ?? assetCache ?? basepartCache;
+		return cache?.Get(location) as T;
+	}
+
+	flush(assetName: string) {
+		const modelCache = this.assetModels.get(assetName);
+		const assetCache = this.assets.get(assetName);
+		const basepartCache = this.baseparts.get(assetName);
+		if (!modelCache && !assetCache && !basepartCache) return warn(`Asset ${assetName} not cached`);
+		const cache = modelCache ?? assetCache ?? basepartCache;
+		cache?.Flush();
+	}
+
+	destroy(assetName: string) {
+		const modelCache = this.assetModels.get(assetName);
+		const assetCache = this.assets.get(assetName);
+		const basepartCache = this.baseparts.get(assetName);
+		if (!modelCache && !assetCache && !basepartCache) return warn(`Asset ${assetName} not cached`);
+		const cache = modelCache ?? assetCache ?? basepartCache;
+		cache?.Destroy();
+		const map = modelCache
+			? this.assetModels
+			: assetCache
+				? this.assets
+				: basepartCache
+					? this.baseparts
+					: undefined;
+		map?.delete(assetName);
+		this.guids.forEach((guid, instance) => {
+			if (guid === assetName) this.guids.delete(instance);
+		});
+	}
 }
