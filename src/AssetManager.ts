@@ -13,6 +13,10 @@ export class AssetManager {
 
 	constructor(private readonly assetRoot: Instance) {}
 
+    getAsset(path: string) {
+        
+    }
+
 	cacheAssetBasepart(asset: BasePart, tree: InstanceTree, location?: Instance, amount?: number) {
 		if (this.guids.has(asset)) return warn(`Basepart ${asset.Name} already cached`);
 		const assetName = HttpService.GenerateGUID();
